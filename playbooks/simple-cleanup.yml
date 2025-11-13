@@ -1,0 +1,9 @@
+---
+# Simple example - just remove obsolete kernels
+- name: Remove obsolete kernels
+  hosts: all
+  become: yes
+  tasks:
+    - name: Clean up old kernels
+      kernsweep:
+        state: absent

@@ -1,0 +1,12 @@
+**/*~
+**/.DS_Store
+**/*.swp
+**/*.pyc
+.vscode
+.coverage
+go.sum
+*.o
+__pycache__
+.pytest_cache
+local/**
+
