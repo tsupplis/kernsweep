@@ -2,6 +2,9 @@
 
 A lightweight command-line tool to detect and remove obsolete Linux kernels and headers.
 
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Python Version](https://img.shields.io/badge/python-3-blue.svg)
+
 ## Overview
 
 KernSweep helps keep your Linux system clean by identifying and removing old kernel packages that are no longer needed, while protecting the currently running kernel and the latest installed kernel.
