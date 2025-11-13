@@ -574,7 +574,7 @@ def generate_apt_command(packages: List[str]) -> List[str]:
 # Kernsweep is now available (embedded above)
 KERNSWEEP_AVAILABLE = True
 KERNSWEEP_IMPORT_ERROR = None
-
+  # type: ignore[import-not-found]
 
 
 

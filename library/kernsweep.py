@@ -115,7 +115,7 @@ reboot_required:
     sample: true
 '''
 
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.basic import AnsibleModule  # type: ignore[import-not-found]
 
 # Import kernsweep - it should be installed as a package
 try:
