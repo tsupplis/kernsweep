@@ -2,11 +2,11 @@
 **/.DS_Store
 **/*.swp
 **/*.pyc
-.vscode
+.vscode/**
 .coverage
-go.sum
-*.o
-__pycache__
-.pytest_cache
+__pycache__/**
 local/**
+.ansible/**
+.mypy_cache/**
+.pytest_cache/**
 
