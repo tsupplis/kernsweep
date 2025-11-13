@@ -362,7 +362,14 @@ def analyze_kernels(kernels: List[KernelInfo]) -> AnalysisResult:
         ValueError: If no running kernel found in the list
     """
     if not kernels:
-        raise ValueError("No kernels provided for analysis")
+        # No kernels (e.g., container environment) - return empty result
+        return AnalysisResult(
+            running_kernel="",
+            latest_kernel="",
+            obsolete_kernels=[],
+            obsolete_headers=[],
+            protected_kernels=[],
+        )
     # Find running kernel
     running_kernel = None
     for kernel in kernels:
@@ -406,7 +413,8 @@ def match_headers_to_kernels(headers: List[str], kernel_versions: Set[str]) -> L
     """
     Match header packages to kernel versions to find orphaned headers.
     Identifies header packages whose corresponding kernel is not in the
-    protected kernel versions set.
+    protected kernel versions set. Handles -common packages by matching
+    against base version without platform suffix.
     Args:
         headers: List of installed header packages (e.g., 'linux-headers-5.15.0-82-generic')
         kernel_versions: Set of kernel versions to keep (e.g., {'5.15.0-91-generic'})
@@ -414,13 +422,39 @@ def match_headers_to_kernels(headers: List[str], kernel_versions: Set[str]) -> L
         List[str]: List of header packages that can be removed
     """
     obsolete_headers = []
+    # Create a set of base versions (without platform suffix) for matching -common packages
+    # e.g., 6.12.48+deb13-amd64 -> 6.12.48+deb13
+    # Strategy: extract everything except the last segment after '-' if it looks like a platform
+    base_versions = set()
+    for kver in kernel_versions:
+        # Split on last '-' to separate potential platform suffix
+        parts = kver.rsplit('-', 1)
+        if len(parts) == 2:
+            # Check if last part is alphanumeric only (typical platform identifiers)
+            # Examples: amd64, generic, lowlatency, cloud, aws, azure, gcp, arm64, i386, etc.
+            last_part = parts[1]
+            # Platform identifiers are typically lowercase alphanumeric without special chars
+            if last_part.replace('_', '').isalnum() and last_part.islower():
+                base_versions.add(parts[0])
+            else:
+                # Not a platform suffix, keep whole version
+                base_versions.add(kver)
+        else:
+            base_versions.add(kver)
     for header in headers:
         # Extract version from header package name
         # linux-headers-5.15.0-82-generic -> 5.15.0-82-generic
         version = header.replace("linux-headers-", "")
-        # If the version is not in the protected set, mark for removal
-        if version not in kernel_versions:
-            obsolete_headers.append(header)
+        # Check if it's a -common package
+        if version.endswith('-common'):
+            # Strip -common and match against base versions
+            base_version = version[:-7]  # Remove '-common'
+            if base_version not in base_versions:
+                obsolete_headers.append(header)
+        else:
+            # Regular header package - must match exact kernel version
+            if version not in kernel_versions:
+                obsolete_headers.append(header)
     return obsolete_headers
 def validate_removal_safety(
     packages_to_remove: List[str],

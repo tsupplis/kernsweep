@@ -160,11 +160,14 @@ class TestAnalyzeKernels(unittest.TestCase):
         self.assertIn("Running kernel not found", str(ctx.exception))
     
     def test_analyze_kernels_empty_list(self):
-        """Test error handling with empty kernel list."""
-        with self.assertRaises(ValueError) as ctx:
-            analyze_kernels([])
+        """Test handling of empty kernel list (e.g., container environment)."""
+        result = analyze_kernels([])
         
-        self.assertIn("No kernels", str(ctx.exception))
+        # Should return empty result, not raise an error
+        self.assertEqual(result.running_kernel, "")
+        self.assertEqual(result.latest_kernel, "")
+        self.assertEqual(len(result.obsolete_kernels), 0)
+        self.assertEqual(len(result.protected_kernels), 0)
     
     def test_analyze_kernels_all_same_version(self):
         """Test when all kernels have the same version (edge case)."""
@@ -268,6 +271,25 @@ class TestMatchHeadersToKernels(unittest.TestCase):
         # lowlatency headers should be marked obsolete
         self.assertEqual(len(result), 1)
         self.assertIn("linux-headers-5.15.0-82-lowlatency", result)
+    
+    def test_match_headers_common_packages(self):
+        """Test that -common header packages are matched correctly against base version."""
+        headers = [
+            "linux-headers-6.12.48+deb13-amd64",
+            "linux-headers-6.12.48+deb13-common",
+            "linux-headers-6.12.41+deb13-amd64",
+            "linux-headers-6.12.41+deb13-common",
+        ]
+        kernel_versions = {"6.12.48+deb13-amd64"}
+        
+        result = match_headers_to_kernels(headers, kernel_versions)
+        
+        # Should keep both 6.12.48 packages (amd64 and common), mark 6.12.41 as obsolete
+        self.assertEqual(len(result), 2)
+        self.assertIn("linux-headers-6.12.41+deb13-amd64", result)
+        self.assertIn("linux-headers-6.12.41+deb13-common", result)
+        self.assertNotIn("linux-headers-6.12.48+deb13-amd64", result)
+        self.assertNotIn("linux-headers-6.12.48+deb13-common", result)
 
 
 if __name__ == '__main__':
