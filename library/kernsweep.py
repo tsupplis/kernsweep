@@ -82,6 +82,11 @@ msg:
     type: str
     returned: always
     sample: "Successfully removed 2 obsolete kernel package(s)"
+rc:
+    description: Return code from kernsweep (0=success, 1=nothing to do, -1=no root, -2=apt failed, 2=reboot required)
+    type: int
+    returned: always
+    sample: 0
 removed_packages:
     description: List of package names that were removed
     type: list
@@ -135,6 +140,7 @@ def run_module():
         changed=False,
         failed=False,
         msg='',
+        rc=0,
         removed_packages=[],
         obsolete_count=0,
         running_kernel='',
@@ -157,6 +163,7 @@ def run_module():
     if module.params['state'] == 'absent' and not module.check_mode:
         if not check_sudo():
             result['msg'] = "Root privileges required for package removal"
+            result['rc'] = -1
             result['failed'] = True
             module.fail_json(**result)
 
@@ -193,12 +200,15 @@ def run_module():
 
         if len(all_obsolete) == 0:
             result['msg'] = "No obsolete kernels or headers found"
+            # rc: 2 if reboot required, 1 if nothing to do
+            result['rc'] = 2 if result['reboot_required'] else 1
             module.exit_json(**result)
 
         # Handle state logic
         if module.params['state'] == 'present':
             # Just report what's there
             result['msg'] = f"Found {len(all_obsolete)} obsolete package(s)"
+            result['rc'] = 0
             result['removed_packages'] = all_obsolete
             module.exit_json(**result)
 
@@ -207,6 +217,7 @@ def run_module():
             # Check mode - don't actually remove
             result['changed'] = True
             result['msg'] = f"Would remove {len(all_obsolete)} obsolete package(s)"
+            result['rc'] = 0
             result['removed_packages'] = all_obsolete
             module.exit_json(**result)
 
@@ -219,13 +230,20 @@ def run_module():
 
         if failed_count > 0:
             result['failed'] = True
+            result['rc'] = -2
             result['msg'] = f"Failed to remove {failed_count} package(s), successfully removed {success_count}"
             module.fail_json(**result)
 
-        # Success
+        # Success - determine rc based on reboot requirement
         result['changed'] = True
         result['msg'] = f"Successfully removed {success_count} obsolete package(s)"
         result['removed_packages'] = all_obsolete
+        
+        # Set rc: 2 if reboot required, 0 otherwise
+        if result['reboot_required']:
+            result['rc'] = 2
+        else:
+            result['rc'] = 0
 
         module.exit_json(**result)
 
