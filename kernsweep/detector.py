@@ -99,9 +99,7 @@ def get_installed_kernels() -> List[KernelInfo]:
                         package_name=package_name,
                     ))
         
-        if not kernels:
-            raise RuntimeError("No kernel packages found")
-        
+        # Return empty list if no kernels found (e.g., container/LXC environment)
         return kernels
     
     except subprocess.CalledProcessError as e:

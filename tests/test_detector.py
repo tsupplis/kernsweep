@@ -91,16 +91,16 @@ ii  some-other-package              1.0.0         amd64
     
     @patch('kernsweep.detector.subprocess.run')
     def test_get_installed_kernels_no_kernels(self, mock_run):
-        """Test handling when no kernel packages found."""
+        """Test handling when no kernel packages found (container/LXC)."""
         mock_run.return_value = MagicMock(
             stdout="ii  some-other-package  1.0.0  amd64\n",
             returncode=0,
         )
         
-        with self.assertRaises(RuntimeError) as ctx:
-            get_installed_kernels()
+        # Should return empty list, not raise error (container environment)
+        result = get_installed_kernels()
         
-        self.assertIn("No kernel packages", str(ctx.exception))
+        self.assertEqual(len(result), 0)
     
     @patch('kernsweep.detector.subprocess.run')
     def test_get_installed_kernels_filters_metapackages(self, mock_run):
