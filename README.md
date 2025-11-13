@@ -22,7 +22,7 @@ KernSweep helps keep your Linux system clean by identifying and removing old ker
 ### From source
 
 ```bash
-git clone https://github.com/yourusername/kernsweep.git
+git clone https://github.com/tsupplis/kernsweep.git
 cd kernsweep
 pip install -e .
 ```
