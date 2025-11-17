@@ -4,6 +4,7 @@
   hosts: all
   become: yes
   tasks:
+    # noqa syntax-check[unknown-module]
     - name: Clean up old kernels
-      kernsweep:  # noqa syntax-check[unknown-module]
+      kernsweep:
         state: absent

@@ -15,8 +15,9 @@
   hosts: all
   become: yes
   tasks:
+    # noqa syntax-check[unknown-module]
     - name: Check for obsolete kernels (report only)
-      kernsweep:  # noqa syntax-check[unknown-module]
+      kernsweep:
         state: present
       register: kernel_status
       
@@ -26,8 +27,9 @@
           Running kernel: {{ kernel_status.running_kernel }}
           Latest kernel: {{ kernel_status.latest_kernel }}
           Obsolete packages: {{ kernel_status.obsolete_count }}
-          Reboot required: {{ kernel_status.reboot_required }}
+      when: kernel_status.reboot_required
       
+    # noqa syntax-check[unknown-module]
     - name: Remove obsolete kernels
       kernsweep:
         state: absent
