@@ -10,6 +10,7 @@ from kernsweep.analyzer import (
     compare_kernel_versions,
     analyze_kernels,
     match_headers_to_kernels,
+    extract_base_version,
     AnalysisResult,
 )
 from kernsweep.detector import KernelInfo
@@ -290,6 +291,59 @@ class TestMatchHeadersToKernels(unittest.TestCase):
         self.assertIn("linux-headers-6.12.41+deb13-common", result)
         self.assertNotIn("linux-headers-6.12.48+deb13-amd64", result)
         self.assertNotIn("linux-headers-6.12.48+deb13-common", result)
+
+
+class TestExtractBaseVersion(unittest.TestCase):
+    """Tests for extract_base_version function."""
+    
+    def test_extract_debian_kernel(self):
+        """Test extracting base version from Debian kernel."""
+        base, flavor = extract_base_version("6.12.48+deb13-amd64")
+        self.assertEqual(base, "6.12.48+deb13")
+        self.assertEqual(flavor, "amd64")
+    
+    def test_extract_ubuntu_kernel(self):
+        """Test extracting base version from Ubuntu kernel."""
+        base, flavor = extract_base_version("5.15.0-82-generic")
+        self.assertEqual(base, "5.15.0-82")
+        self.assertEqual(flavor, "generic")
+    
+    def test_extract_raspberry_pi_kernel(self):
+        """Test extracting base version from Raspberry Pi kernels."""
+        base1, flavor1 = extract_base_version("6.12.47+rpt-rpi-2712")
+        self.assertEqual(base1, "6.12.47+rpt-rpi")
+        self.assertEqual(flavor1, "2712")
+        
+        base2, flavor2 = extract_base_version("6.12.47+rpt-rpi-v8")
+        self.assertEqual(base2, "6.12.47+rpt-rpi")
+        self.assertEqual(flavor2, "v8")
+    
+    def test_extract_no_flavor(self):
+        """Test version with no clear flavor separator."""
+        base, flavor = extract_base_version("6.12.48")
+        self.assertEqual(base, "6.12.48")
+        self.assertEqual(flavor, "")
+
+
+class TestAnalyzeSameBaseVersion(unittest.TestCase):
+    """Tests for handling multiple kernels with same base version."""
+    
+    def test_protect_same_base_version_kernels(self):
+        """Test that all kernels with same base version as running are protected."""
+        kernels = [
+            KernelInfo(version="6.12.47+rpt-rpi-2712", package_name="linux-image-6.12.47+rpt-rpi-2712", is_running=True),
+            KernelInfo(version="6.12.47+rpt-rpi-v8", package_name="linux-image-6.12.47+rpt-rpi-v8"),
+            KernelInfo(version="6.12.41+rpt-rpi-2712", package_name="linux-image-6.12.41+rpt-rpi-2712"),
+        ]
+        
+        result = analyze_kernels(kernels)
+        
+        # Both 6.12.47 variants should be protected
+        self.assertNotIn("linux-image-6.12.47+rpt-rpi-2712", result.obsolete_kernels)
+        self.assertNotIn("linux-image-6.12.47+rpt-rpi-v8", result.obsolete_kernels)
+        
+        # Only the old 6.12.41 should be obsolete
+        self.assertIn("linux-image-6.12.41+rpt-rpi-2712", result.obsolete_kernels)
 
 
 if __name__ == '__main__':

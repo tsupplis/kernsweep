@@ -223,6 +223,8 @@ def _handle_removal(args, reporter, all_obsolete: List[str], analysis) -> int:
         
         # Check if reboot is needed
         from .utils import needs_reboot
+        
+        # Reboot needed if: system flag OR running != latest
         reboot_needed = needs_reboot() or analysis.running_kernel != analysis.latest_kernel
         
         if reboot_needed:

@@ -12,6 +12,38 @@ from dataclasses import dataclass
 from .detector import KernelInfo
 
 
+def extract_base_version(version: str) -> Tuple[str, str]:
+    """
+    Extract base version and flavor from a kernel version string.
+    
+    Splits version into base (numeric) part and flavor (platform/variant).
+    Examples:
+        '6.12.47+rpt-rpi-2712' -> ('6.12.47+rpt-rpi', '2712')
+        '6.12.47+rpt-rpi-v8' -> ('6.12.47+rpt-rpi', 'v8')
+        '5.15.0-82-generic' -> ('5.15.0-82', 'generic')
+        '6.12.48+deb13-amd64' -> ('6.12.48+deb13', 'amd64')
+    
+    Args:
+        version: Kernel version string
+        
+    Returns:
+        Tuple[str, str]: (base_version, flavor)
+    """
+    # Split on last '-' to separate flavor
+    parts = version.rsplit('-', 1)
+    if len(parts) == 2:
+        base = parts[0]
+        flavor = parts[1]
+        # Check if the last part looks like a platform/flavor identifier
+        # Pure alphanumeric (may contain underscores), and doesn't start with a digit followed by dot
+        # This excludes things like "5.15" but includes "2712", "v8", "amd64", "generic"
+        if flavor.replace('_', '').isalnum() and not re.match(r'^\d+\.', flavor):
+            return (base, flavor)
+    
+    # No clear flavor separation, return whole version as base
+    return (version, '')
+
+
 @dataclass
 class AnalysisResult:
     """
@@ -117,15 +149,29 @@ def analyze_kernels(kernels: List[KernelInfo]) -> AnalysisResult:
         if compare_kernel_versions(kernel.version, latest_kernel.version) > 0:
             latest_kernel = kernel
     
+    # Extract base versions for running and latest kernels
+    running_base, _ = extract_base_version(running_kernel.version)
+    latest_base, _ = extract_base_version(latest_kernel.version)
+    
+    # If latest has same base version as running, treat them as the same
+    if running_base == latest_base:
+        latest_kernel = running_kernel
+    
     latest_kernel.is_latest = True
     
-    # Identify obsolete kernels (not running and not latest)
+    # Protect running kernel version and latest kernel version
+    # Also protect all kernels with the same base version as running kernel
+    # (e.g., if running 6.12.47+rpt-rpi-2712, also protect 6.12.47+rpt-rpi-v8)
     protected_versions = {running_kernel.version, latest_kernel.version}
+    protected_base_versions = {running_base, latest_base}
+    
     obsolete_kernels = []
     protected_kernels = []
     
     for kernel in kernels:
-        if kernel.version in protected_versions:
+        kernel_base, _ = extract_base_version(kernel.version)
+        # Protect if exact match OR same base version as running/latest
+        if kernel.version in protected_versions or kernel_base in protected_base_versions:
             protected_kernels.append(kernel.package_name)
         else:
             obsolete_kernels.append(kernel.package_name)

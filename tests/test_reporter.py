@@ -183,6 +183,27 @@ class TestReporterOutput(unittest.TestCase):
         # Reboot notice may not show in quiet mode - just verify no crash
         self.assertIsInstance(output, str)
     
+    def test_reporter_same_base_version_no_reboot_message(self):
+        """Test that same base version kernels don't trigger reboot message."""
+        reporter = Reporter(OutputLevel.NORMAL)
+        
+        # When analyzer detects same base version, it sets latest = running
+        result = AnalysisResult(
+            running_kernel="6.12.47+rpt-rpi-2712",
+            latest_kernel="6.12.47+rpt-rpi-2712",  # Same as running
+            obsolete_kernels=[],
+            obsolete_headers=[],
+            protected_kernels=["linux-image-6.12.47+rpt-rpi-2712"]
+        )
+        
+        with patch('sys.stdout', new=StringIO()) as fake_out:
+            reporter.print_analysis(result)
+            output = fake_out.getvalue()
+        
+        # Should show kernel but NOT show reboot message
+        self.assertIn("6.12.47+rpt-rpi-2712", output)
+        self.assertNotIn("System will boot into", output)
+    
     def test_reporter_large_package_list(self):
         """Test with large number of packages."""
         large_kernel_list = [f"linux-image-5.15.0-{i}-generic" for i in range(50)]
