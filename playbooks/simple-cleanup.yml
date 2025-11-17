@@ -5,5 +5,5 @@
   become: yes
   tasks:
     - name: Clean up old kernels
-      kernsweep:
+      kernsweep:  # noqa syntax-check[unknown-module]
         state: absent

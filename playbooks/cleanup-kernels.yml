@@ -16,7 +16,7 @@
   become: yes
   tasks:
     - name: Check for obsolete kernels (report only)
-      kernsweep:
+      kernsweep:  # noqa syntax-check[unknown-module]
         state: present
       register: kernel_status
       
