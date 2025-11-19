@@ -66,9 +66,17 @@ class Reporter:
             # Print in columns (apt style)
             all_packages = result.obsolete_kernels + result.obsolete_headers
             for pkg in all_packages:
-                # Strip linux-image- and linux-headers- prefix for cleaner display
-                short_name = pkg.replace("linux-image-", "").replace("linux-headers-", "")
-                pkg_type = "image" if "image" in pkg else "headers"
+                # Strip kernel/header prefixes for cleaner display
+                short_name = (pkg.replace("linux-image-", "")
+                             .replace("linux-headers-", "")
+                             .replace("proxmox-kernel-", "")
+                             .replace("proxmox-headers-", ""))
+                
+                # Determine package type
+                if pkg in result.obsolete_kernels:
+                    pkg_type = "image"
+                else:
+                    pkg_type = "headers"
                 print(f"  {short_name}* ({pkg_type})")
             
             print()

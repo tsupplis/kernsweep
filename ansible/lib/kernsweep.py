@@ -224,13 +224,14 @@ def get_running_kernel() -> str:
 def get_installed_kernels() -> List[KernelInfo]:
     """
     Get list of all installed kernel packages.
+    Supports both standard Debian/Ubuntu (linux-image-*) and Proxmox (proxmox-kernel-*) kernels.
     Returns:
         List[KernelInfo]: List of installed kernels with metadata
     Raises:
         RuntimeError: If unable to query installed packages
     """
     try:
-        # Query dpkg for installed linux-image packages
+        # Query dpkg for installed kernel packages
         # Format: package name, status
         result = subprocess.run(
             ["dpkg", "-l"],
@@ -241,9 +242,13 @@ def get_installed_kernels() -> List[KernelInfo]:
         kernels = []
         # Pattern to match linux-image packages
         # Example: linux-image-5.15.0-82-generic
-        pattern = re.compile(r'^ii\s+(linux-image-[\d\.\-]+\S*)\s+')
+        linux_pattern = re.compile(r'^ii\s+(linux-image-[\d\.\-]+\S*)\s+')
+        # Pattern to match proxmox-kernel packages
+        # Example: proxmox-kernel-6.17.2-1-pve-signed
+        proxmox_pattern = re.compile(r'^ii\s+(proxmox-kernel-([\d\.\-]+\S+?)(?:-signed)?)\s+')
         for line in result.stdout.splitlines():
-            match = pattern.match(line)
+            # Try linux-image pattern
+            match = linux_pattern.match(line)
             if match:
                 package_name = match.group(1)
                 # Extract version from package name
@@ -251,6 +256,19 @@ def get_installed_kernels() -> List[KernelInfo]:
                 version = package_name.replace("linux-image-", "")
                 # Skip meta-packages (generic, lowlatency, etc. without version numbers)
                 if re.match(r'^\d+\.', version):
+                    kernels.append(KernelInfo(
+                        version=version,
+                        package_name=package_name,
+                    ))
+                continue
+            # Try proxmox-kernel pattern
+            match = proxmox_pattern.match(line)
+            if match:
+                package_name = match.group(1)
+                version = match.group(2)
+                # Proxmox versions are like: 6.17.2-1-pve (at least 3 components)
+                # Skip meta-packages like proxmox-kernel-6.14 (only 2 components)
+                if re.match(r'^\d+\.\d+\.\d+', version):
                     kernels.append(KernelInfo(
                         version=version,
                         package_name=package_name,
@@ -264,13 +282,14 @@ def get_installed_kernels() -> List[KernelInfo]:
 def get_installed_headers() -> List[str]:
     """
     Get list of all installed kernel header packages.
+    Supports both standard Debian/Ubuntu (linux-headers-*) and Proxmox (proxmox-headers-*) headers.
     Returns:
         List[str]: List of kernel header package names
     Raises:
         RuntimeError: If unable to query installed packages
     """
     try:
-        # Query dpkg for installed linux-headers packages
+        # Query dpkg for installed header packages
         result = subprocess.run(
             ["dpkg", "-l"],
             capture_output=True,
@@ -280,14 +299,26 @@ def get_installed_headers() -> List[str]:
         headers = []
         # Pattern to match linux-headers packages
         # Example: linux-headers-5.15.0-82-generic
-        pattern = re.compile(r'^ii\s+(linux-headers-[\d\.\-]+\S*)\s+')
+        linux_pattern = re.compile(r'^ii\s+(linux-headers-[\d\.\-]+\S*)\s+')
+        # Pattern to match proxmox-headers packages
+        # Example: proxmox-headers-6.17.2-1-pve
+        proxmox_pattern = re.compile(r'^ii\s+(proxmox-headers-[\d\.\-]+\S+)\s+')
         for line in result.stdout.splitlines():
-            match = pattern.match(line)
+            # Try linux-headers pattern
+            match = linux_pattern.match(line)
             if match:
                 package_name = match.group(1)
                 # Extract version to check if it's a specific version package
                 version = package_name.replace("linux-headers-", "")
                 # Skip meta-packages (generic, lowlatency, etc. without version numbers)
+                if re.match(r'^\d+\.', version):
+                    headers.append(package_name)
+                continue
+            # Try proxmox-headers pattern
+            match = proxmox_pattern.match(line)
+            if match:
+                package_name = match.group(1)
+                version = package_name.replace("proxmox-headers-", "")
                 if re.match(r'^\d+\.', version):
                     headers.append(package_name)
         return headers
@@ -480,7 +511,14 @@ def match_headers_to_kernels(headers: List[str], kernel_versions: Set[str]) -> L
     for header in headers:
         # Extract version from header package name
         # linux-headers-5.15.0-82-generic -> 5.15.0-82-generic
-        version = header.replace("linux-headers-", "")
+        # proxmox-headers-6.17.2-1-pve -> 6.17.2-1-pve
+        if header.startswith("linux-headers-"):
+            version = header.replace("linux-headers-", "")
+        elif header.startswith("proxmox-headers-"):
+            version = header.replace("proxmox-headers-", "")
+        else:
+            # Unknown header format, skip
+            continue
         # Check if it's a -common package
         if version.endswith('-common'):
             # Strip -common and match against base versions

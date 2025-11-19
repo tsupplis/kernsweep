@@ -236,7 +236,14 @@ def match_headers_to_kernels(headers: List[str], kernel_versions: Set[str]) -> L
     for header in headers:
         # Extract version from header package name
         # linux-headers-5.15.0-82-generic -> 5.15.0-82-generic
-        version = header.replace("linux-headers-", "")
+        # proxmox-headers-6.17.2-1-pve -> 6.17.2-1-pve
+        if header.startswith("linux-headers-"):
+            version = header.replace("linux-headers-", "")
+        elif header.startswith("proxmox-headers-"):
+            version = header.replace("proxmox-headers-", "")
+        else:
+            # Unknown header format, skip
+            continue
         
         # Check if it's a -common package
         if version.endswith('-common'):
